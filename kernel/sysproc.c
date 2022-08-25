@@ -26,7 +26,14 @@ sys_getpid(void)
 uint64
 sys_fork(void)
 {
-  return fork();
+  int pid  = fork();
+  /*
+  int trace_field = myproc()->trace_field;
+  if(pid == 0){
+    myproc()->trace_field = trace_field;
+  }
+  */
+  return pid;
 }
 
 uint64
@@ -94,4 +101,21 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64 
+sys_trace(void){
+  int mask;
+  if(argint(0, &mask) < 0) // copy the argnument from user space to kernel space
+    return -1;
+  // remenber this mask into proc
+  myproc()->trace_field = mask;
+  return 0;  // not reached
+}
+
+uint64 sys_sysinfo(void){
+  
+  printf("call sys info \n ");
+  return 0;
+
 }
