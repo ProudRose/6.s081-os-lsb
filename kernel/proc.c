@@ -129,7 +129,18 @@ found:
 
   return p;
 }
-
+uint64
+getFreeprocNum(void){
+  struct proc *p = proc;
+  int freeNum = 0;
+  for(; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->state != UNUSED)
+      freeNum ++;
+    release(&p->lock);
+  }
+  return freeNum;
+}
 // free a proc structure and the data hanging from it,
 // including user pages.
 // p->lock must be held.

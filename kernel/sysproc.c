@@ -6,6 +6,11 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "sysinfo.h"
+
+
+extern uint64 kGetFreeSize(void);
+extern uint64 getFreeprocNum(void);
 
 uint64
 sys_exit(void)
@@ -113,9 +118,25 @@ sys_trace(void){
   return 0;  // not reached
 }
 
-uint64 sys_sysinfo(void){
+uint64
+sys_sysinfo(void){
   
-  printf("call sys info \n ");
-  return 0;
+  // the sysinfo struct from user space
+  uint64 info_addr;
+  struct proc* p = myproc();
+  struct sysinfo sysinfo;
+
+  argaddr(0, &info_addr);
+
+  // read the sys info from kernel
+  uint64 freeSize = kGetFreeSize(); 
+  sysinfo.freemem = freeSize;
+  sysinfo.nproc = getFreeprocNum();
+
+  //printf("call sys info freemen: %d bytes -- nproc: %d  \n ",sysinfo.freemem,sysinfo.nproc);
+  //copy the info back to userspace
+  if(copyout(p->pagetable , info_addr, (char *)&sysinfo, sizeof(sysinfo) ) < 0)
+     return -1;
+  return 0; 
 
 }
