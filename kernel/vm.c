@@ -15,6 +15,7 @@ extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
 
+void pgtbprint(pagetable_t,int);
 /*
  * create a direct-map page table for the kernel.
  */
@@ -439,4 +440,48 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   } else {
     return -1;
   }
+}
+
+// print the page table of specific PTE, or va
+
+void 
+vmprint(pagetable_t pagetable)
+{
+   // iterator all the page table by PGSIZE
+  printf("page table %p \n",&pagetable);
+  pgtbprint(pagetable, 0);
+  /*
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pagetable[i];
+    if((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0){
+      // this PTE points to a lower-level page table.
+      uint64 child = PTE2PA(pte);
+      freewalk((pagetable_t)child);
+      pagetable[i] = 0;
+    } else if(pte & PTE_V){
+      panic("freewalk: leaf");
+    }
+  }*/
+ 
+}
+
+void 
+pgtbprint(pagetable_t pagetable, int depth){
+   for(int idx=0 ; idx < 512 ; idx ++ ){
+     pte_t pte = pagetable[idx];
+         // check if the pte is valid
+     if( pte & PTE_V){
+       printf("..");
+       // in the moddle level
+       for(int level = 1;level<=depth;level ++ )
+          printf(" ..");
+       printf("%d pte %p pa %p \n",idx,&pte,(PTE2PA(pte)));
+
+       if ((pte & (PTE_R|PTE_W|PTE_X))==0)
+       {
+         uint64 child = PTE2PA(pte);
+         pgtbprint((pagetable_t) child, depth + 1);
+       }
+     }
+   }
 }
