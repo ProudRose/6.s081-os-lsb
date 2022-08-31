@@ -440,3 +440,34 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+// print the page table of specific PTE, or va
+
+void
+pgtbprint(pagetable_t pagetable, int depth){
+   for(int idx=0 ; idx < 512 ; idx ++ ){
+     pte_t pte = pagetable[idx];
+         // check if the pte is valid
+     if( pte & PTE_V){
+       printf("..");
+       // in the moddle level
+       for(int level = 1;level<=depth;level ++ )
+          printf(" ..");
+       printf("%d: pte %p pa %p\n",idx,pte,(PTE2PA(pte)));
+
+       if ((pte & (PTE_R|PTE_W|PTE_X))==0)
+       {
+         uint64 child = PTE2PA(pte);
+         pgtbprint((pagetable_t) child, depth + 1);
+       }
+     }
+   }
+}
+void
+vmprint(pagetable_t pagetable)
+{
+   // iterator all the page table by PGSIZE
+  printf("page table %p\n",pagetable);
+  pgtbprint(pagetable, 0);
+}
+
+
