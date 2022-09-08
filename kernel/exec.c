@@ -52,6 +52,8 @@ exec(char *path, char **argv)
     if((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz)) == 0)
       goto bad;
     sz = sz1;
+    if(sz > PLIC)
+      goto bad;
     if(ph.vaddr % PGSIZE != 0)
       goto bad;
     if(loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0)
@@ -107,7 +109,7 @@ exec(char *path, char **argv)
     if(*s == '/')
       last = s+1;
   safestrcpy(p->name, last, sizeof(p->name));
-    
+ 
   // Commit to the user image.
   oldpagetable = p->pagetable;
   p->pagetable = pagetable;
@@ -115,6 +117,13 @@ exec(char *path, char **argv)
   p->trapframe->epc = elf.entry;  // initial program counter = main
   p->trapframe->sp = sp; // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);
+  
+   
+  if( sz < PLIC ){
+    uvmunmap( p->kernel_pgtbl,0,(PGROUNDUP(oldsz)/PGSIZE),0);
+    copypgtbl(pagetable,p->kernel_pgtbl,0,sz);
+  }
+ 
 
   if(p->pid == 1){
     vmprint(p->pagetable);

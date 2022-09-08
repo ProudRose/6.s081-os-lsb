@@ -160,13 +160,17 @@ int             uartgetc(void);
 // vm.c
 void            kvminit(void);
 void            kvminithart(void);
-uint64          kvmpa(uint64);
+uint64          kvmpa(pagetable_t,uint64);
 void            kvmmap(uint64, uint64, uint64, int);
+pagetable_t     kvmmake(void);
+void            vmmap(pagetable_t, uint64, uint64, uint64 ,int);
 int             mappages(pagetable_t, uint64, uint64, uint64, int);
 pagetable_t     uvmcreate(void);
 void            uvminit(pagetable_t, uchar *, uint);
 uint64          uvmalloc(pagetable_t, uint64, uint64);
 uint64          uvmdealloc(pagetable_t, uint64, uint64);
+uint64          kvmunmap(pagetable_t, uint64, uint64);
+int             copypgtbl(pagetable_t,pagetable_t,uint64, uint64);
 #ifdef SOL_COW
 #else
 int             uvmcopy(pagetable_t, pagetable_t, uint64);

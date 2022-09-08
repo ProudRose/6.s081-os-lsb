@@ -18,6 +18,7 @@ struct spinlock pid_lock;
 extern void forkret(void);
 static void wakeup1(struct proc *chan);
 static void freeproc(struct proc *p);
+void freepgtbl(pagetable_t);
 
 extern char trampoline[]; // trampoline.S
 
@@ -30,7 +31,7 @@ procinit(void)
   initlock(&pid_lock, "nextpid");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
-
+      /* 
       // Allocate a page for the process's kernel stack.
       // Map it high in memory, followed by an invalid
       // guard page.
@@ -40,8 +41,10 @@ procinit(void)
       uint64 va = KSTACK((int) (p - proc));
       kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
       p->kstack = va;
+      */
   }
   kvminithart();
+ 
 }
 
 // Must be called with interrupts disabled,
@@ -113,13 +116,35 @@ found:
     return 0;
   }
 
+
+ 
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
+
   if(p->pagetable == 0){
     freeproc(p);
     release(&p->lock);
     return 0;
   }
+
+  // An new kernel page table.
+  p->kernel_pgtbl = kvmmake();
+  if(p->kernel_pgtbl == 0 ){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+  // Allocate a page for the process's kernel stack.
+  // Map it high in memory, followed by an invalid
+  // guard page.
+  char *pa = kalloc();
+
+  if(pa == 0)
+    panic("kalloc");
+  uint64 va = KSTACK((int) 0);
+  vmmap(p->kernel_pgtbl,va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+  p->kstack = va;
+
 
   // Set up new context to start executing at forkret,
   // which returns to user space.
@@ -130,8 +155,8 @@ found:
   return p;
 }
 
-// free a proc structure and the data hanging from it,
 // including user pages.
+// free a proc structure and the data hanging from it,
 // p->lock must be held.
 static void
 freeproc(struct proc *p)
@@ -141,6 +166,17 @@ freeproc(struct proc *p)
   p->trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
+ 
+  // free the stack 
+  void *kstack_pa = (void*) kvmpa(p->kernel_pgtbl,p->kstack);
+  if(kstack_pa !=0)
+    kfree(kstack_pa);
+  p->kstack = 0;
+  if(p->kernel_pgtbl)
+    // free the kernel pagetable
+    freepgtbl(p->kernel_pgtbl);
+
+  p->kernel_pgtbl = 0;
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
@@ -221,6 +257,8 @@ userinit(void)
   uvminit(p->pagetable, initcode, sizeof(initcode));
   p->sz = PGSIZE;
 
+  copypgtbl(p->pagetable, p->kernel_pgtbl, 0 , p->sz);
+
   // prepare for the very first "return" from kernel to user.
   p->trapframe->epc = 0;      // user program counter
   p->trapframe->sp = PGSIZE;  // user stack pointer
@@ -229,6 +267,7 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+
 
   release(&p->lock);
 }
@@ -243,12 +282,22 @@ growproc(int n)
 
   sz = p->sz;
   if(n > 0){
+    // check is sz > PLIC
+    if(sz + n > PLIC){
+      return -1;
+    }
     if((sz = uvmalloc(p->pagetable, sz, sz + n)) == 0) {
       return -1;
     }
+    // expand the mapping in user kernel
+    copypgtbl(p->pagetable, p->kernel_pgtbl,p->sz,sz);
+
   } else if(n < 0){
-    sz = uvmdealloc(p->pagetable, sz, sz + n);
+    uvmdealloc(p->pagetable, sz, sz + n);
+    sz = kvmunmap(p->kernel_pgtbl, sz, sz + n);
   }
+
+  
   p->sz = sz;
   return 0;
 }
@@ -268,12 +317,17 @@ fork(void)
   }
 
   // Copy user memory from parent to child.
+  // must copy user pgtbl to kernel pgtbl
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
     release(&np->lock);
     return -1;
   }
+  // same way to maintain the kernel page contain a copy of user page 
+  copypgtbl(np->pagetable,np->kernel_pgtbl,0,p->sz); 
+
   np->sz = p->sz;
+  
 
   np->parent = p;
 
@@ -285,7 +339,7 @@ fork(void)
 
   // increment reference counts on open file descriptors.
   for(i = 0; i < NOFILE; i++)
-    if(p->ofile[i])
+    if(p->ofile[i]  )
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
 
@@ -463,21 +517,28 @@ scheduler(void)
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
-    
+
     int found = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
+           // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+        
+        w_satp(MAKE_SATP(p->kernel_pgtbl));
+        sfence_vma();
+
+
         swtch(&c->context, &p->context);
 
+        kvminithart();    
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
+        // use kernel page table when no process is running
 
         found = 1;
       }
