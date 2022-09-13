@@ -58,6 +58,7 @@ sys_sleep(void)
   int n;
   uint ticks0;
 
+  backtrace();
   if(argint(0, &n) < 0)
     return -1;
   acquire(&tickslock);
@@ -94,4 +95,48 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+
+uint64
+sys_sigalarm(void)
+{
+  struct proc *p = myproc();
+  int interval = 0;
+  if(argint(0,&interval) < 0)
+    return -1;
+  
+  // stop generate periddic alarm calls
+  if(interval == 0){
+    p->alarm_interval = 0;
+    p->handler = 0;
+    
+    // free the alarm frame
+    //if(p->alarmframe)
+      //kfree((void*) p->alarmframe);
+
+    return 0;
+  }else{
+    // alloc an trapframe to save enough registers
+   if((p->alarmframe = (struct trapframe*)kalloc())==0)
+    return -1; 
+  }
+
+  p->alarm_interval = interval;
+
+  uint64 handler = 0;
+  if(argaddr(1,&handler) < 0)
+    return -1;
+  p->handler = (void*) handler;
+  return 0;
+}
+
+uint64 
+sys_sigreturn(void)
+{
+  struct proc *p = myproc();
+  p->in_alarm = 0;
+  if(p->alarmframe)
+  *(p->trapframe) = *(p->alarmframe);
+ return 0; 
 }

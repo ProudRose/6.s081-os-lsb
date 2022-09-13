@@ -78,7 +78,23 @@ usertrap(void)
 
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2)
+  {
+    // check if the alarm clock has expired
+    if(p->alarm_interval!=0 && p->in_alarm!=1){
+      if(p->alarm_ticks == p->alarm_interval){
+        p->alarm_ticks = 0;
+
+        // need to save registers to restore state
+        *(p->alarmframe) = *(p->trapframe);
+        p->in_alarm = 1;
+        p->trapframe->epc = (uint64)p->handler;
+        // need to save the registers 
+      }else{
+        p->alarm_ticks ++;
+     }
+    }
     yield();
+  }
 
   usertrapret();
 }

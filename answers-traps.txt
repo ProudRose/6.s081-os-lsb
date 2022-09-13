@@ -1,0 +1,12 @@
+which registers contain arguments to functions? 
+- : a0~a7
+
+Where is the call to function f in the assembly code for main? Where is the call to g?
+
+- : none , they are inline funtions
+
+At what address is the function printf located?
+-| 640
+
+What value is in the register ra just after the jalr to printf in main?
+-| 

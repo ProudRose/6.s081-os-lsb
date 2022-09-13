@@ -40,6 +40,8 @@ procinit(void)
       uint64 va = KSTACK((int) (p - proc));
       kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
       p->kstack = va;
+      p->alarm_ticks = 0;
+      p->in_alarm = 0;
   }
   kvminithart();
 }
@@ -138,6 +140,8 @@ freeproc(struct proc *p)
 {
   if(p->trapframe)
     kfree((void*)p->trapframe);
+  if(p->alarmframe)
+    kfree((void*) p->alarmframe);
   p->trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);

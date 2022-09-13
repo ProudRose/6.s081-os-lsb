@@ -110,8 +110,23 @@ printf(char *fmt, ...)
     }
   }
 
+
   if(locking)
     release(&pr.lock);
+}
+
+// get all backtrace of function call
+void backtrace(){
+  printf("backtrace:\n");
+  // get the frame pointer
+  uint64 fp = r_fp();
+  uint64 st_bt = PGROUNDUP(fp);
+  //uint64 st_top = PGROUNDUP(fp);
+  while(fp < st_bt){
+
+    printf("%p\n",*(uint64*)(fp-8));
+    fp = *(uint64*)(fp -16);
+  }
 }
 
 void
@@ -121,6 +136,7 @@ panic(char *s)
   printf("panic: ");
   printf(s);
   printf("\n");
+  backtrace();
   panicked = 1; // freeze uart output from other CPUs
   for(;;)
     ;
