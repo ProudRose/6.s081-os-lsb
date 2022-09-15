@@ -252,7 +252,27 @@ growproc(int n)
   p->sz = sz;
   return 0;
 }
+// lazy alloc of growproc
+int 
+lazygrowproc(int n)
+{
+  uint sz;
+  struct proc *p = myproc();
+  
+  sz = p->sz;
+  
+  if(n > 0){
+    // printf("uvmalloc sz:%d n:%d\n",sz,n);
+    sz = sz + n; 
+  } else if(n < 0){
+    // printf("uvmdealloc sz:%d  n:%d \n",sz,n);
+    sz = uvmdealloc(p->pagetable, sz, sz + n);
+  }
 
+  p->sz = sz;
+  
+  return 0;
+}
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
 int
@@ -268,7 +288,7 @@ fork(void)
   }
 
   // Copy user memory from parent to child.
-  if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
+  if(lazyuvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
     release(&np->lock);
     return -1;

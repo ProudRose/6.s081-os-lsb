@@ -17,7 +17,6 @@ sparse_memory(char *s)
   
   prev_end = sbrk(REGION_SZ);
   if (prev_end == (char*)0xffffffffffffffffL) {
-    printf("sbrk() failed\n");
     exit(1);
   }
   new_end = prev_end + REGION_SZ;
@@ -25,6 +24,7 @@ sparse_memory(char *s)
   for (i = prev_end + PGSIZE; i < new_end; i += 64 * PGSIZE)
     *(char **)i = i;
 
+  
   for (i = prev_end + PGSIZE; i < new_end; i += 64 * PGSIZE) {
     if (*(char **)i != i) {
       printf("failed to read value from memory\n");
@@ -32,6 +32,7 @@ sparse_memory(char *s)
     }
   }
 
+  printf("after load \n");
   exit(0);
 }
 
