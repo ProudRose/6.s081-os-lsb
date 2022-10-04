@@ -1,0 +1,8 @@
+1.thread 1 step into put with the key1 % NBUCKET = 1
+2.thread 2 step into put with the key2 % NBUCKET = 1
+3.thread 1 get the last entry (which is 0)
+4.thread 2 get the last entry (which is 0) ,and the entry is the same to thread 1's
+5.thread 1 set insert a new entry with key1 
+6.thread 2 insert a new entry in the same place with key2
+
+
